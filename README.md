@@ -35,15 +35,14 @@ A smart recipe suggestion tool that combines real-time weather data with delicio
 
 ---
 
-## 📦 Clone This Project
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/Harshithad9/Single-Page-Explainer.git
+## Live Demo
 
-```bash
-git clone https://github.com/yourusername/weather-recipe-finder.git
-cd weather-recipe-finder
+➡️ [View the live timeline here](https://weather-powered-recipe-finder.vercel.app
+)
 
-
-🌐 Live Demo
-https://weather-powered-recipe-finder.vercel.app
 
 
 
