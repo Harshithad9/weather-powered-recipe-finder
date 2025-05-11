@@ -35,5 +35,15 @@ A smart recipe suggestion tool that combines real-time weather data with delicio
 
 ---
 
+## 📦 Clone This Project
+
+```bash
+git clone https://github.com/yourusername/weather-recipe-finder.git
+cd weather-recipe-finder
+
+
+🌐 Live Demo
+https://your-project-name.netlify.app
+
 
 
