@@ -43,7 +43,7 @@ cd weather-recipe-finder
 
 
 🌐 Live Demo
-https://your-project-name.netlify.app
+https://weather-powered-recipe-finder.vercel.app
 
 
 
