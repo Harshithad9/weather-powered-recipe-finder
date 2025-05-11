@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weather-Powered Recipe Finder</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+        
+        .description {
+            color: #7f8c8d;
+            margin-bottom: 20px;
+        }
+        
+        .search-container {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+        
+        input, button, select {
+            padding: 10px 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+        
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        
+        button:hover {
+            background-color: #2980b9;
+        }
+        
+        .results {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 20px;
+        }
+        
+        .weather-card {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        
+        .weather-icon {
+            font-size: 50px;
+            margin: 10px 0;
+        }
+        
+        .temp {
+            font-size: 36px;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        
+        .recipes-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+        }
+        
+        .recipe-card {
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .recipe-img {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+        }
+        
+        .recipe-content {
+            padding: 15px;
+        }
+        
+        .recipe-title {
+            font-size: 18px;
+            margin-bottom: 10px;
+            color: #2c3e50;
+        }
+        
+        .recipe-health {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            margin-bottom: 10px;
+        }
+        
+        .health-label {
+            background-color: #e74c3c;
+            color: white;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 20px;
+            font-size: 18px;
+            color: #7f8c8d;
+        }
+        
+        .error {
+            color: #e74c3c;
+            text-align: center;
+            padding: 20px;
+        }
+        
+        @media (max-width: 768px) {
+            .results {
+                grid-template-columns: 1fr;
+            }
+            
+            .search-container {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Weather-Powered Recipe Finder</h1>
+        <p class="description">Get personalized recipe suggestions based on your local weather conditions</p>
+        
+        <div class="search-container">
+            <input type="text" id="location-input" placeholder="Enter city (e.g., London, Paris)">
+            <button id="search-btn">Search</button>
+            <button id="current-location-btn">Use My Location</button>
+        </div>
+    </header>
+    
+    <main>
+        <div id="loading" class="loading" style="display: none;">Loading weather and recipe data...</div>
+        <div id="error" class="error" style="display: none;"></div>
+        
+        <div id="results" class="results" style="display: none;">
+            <div class="weather-card">
+                <h2 id="weather-location">Weather in </h2>
+                <div class="weather-icon" id="weather-icon">☀️</div>
+                <div class="temp" id="temperature">--°C</div>
+                <div id="weather-description">--</div>
+                <div id="weather-details">
+                    <div>Humidity: <span id="humidity">--</span>%</div>
+                    <div>Wind: <span id="wind">--</span> km/h</div>
+                </div>
+            </div>
+            
+            <div class="recipes-container" id="recipes-container">
+                <!-- Recipe cards will be inserted here -->
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // DOM Elements
+        const locationInput = document.getElementById('location-input');
+        const searchBtn = document.getElementById('search-btn');
+        const currentLocationBtn = document.getElementById('current-location-btn');
+        const loadingEl = document.getElementById('loading');
+        const errorEl = document.getElementById('error');
+        const resultsEl = document.getElementById('results');
+        const recipesContainer = document.getElementById('recipes-container');
+        
+        // Event Listeners
+        searchBtn.addEventListener('click', () => {
+            const location = locationInput.value.trim();
+            if (location) {
+                getWeatherAndRecipes(location);
+            } else {
+                showError('Please enter a location');
+            }
+        });
+        
+        currentLocationBtn.addEventListener('click', () => {
+            if (navigator.geolocation) {
+                loadingEl.style.display = 'block';
+                errorEl.style.display = 'none';
+                resultsEl.style.display = 'none';
+                
+                navigator.geolocation.getCurrentPosition(
+                    position => {
+                        const lat = position.coords.latitude;
+                        const lon = position.coords.longitude;
+                        getWeatherByCoords(lat, lon);
+                    },
+                    error => {
+                        showError('Unable to retrieve your location. Please enter a location manually.');
+                    }
+                );
+            } else {
+                showError('Geolocation is not supported by your browser. Please enter a location manually.');
+            }
+        });
+        
+        // Using free weather API (no key required)
+        async function getWeatherAndRecipes(location) {
+            try {
+                loadingEl.style.display = 'block';
+                errorEl.style.display = 'none';
+                resultsEl.style.display = 'none';
+                
+                // Using free weather API
+                const weatherUrl = `https://goweather.herokuapp.com/weather/${encodeURIComponent(location)}`;
+                const weatherResponse = await fetch(weatherUrl);
+                
+                if (!weatherResponse.ok) {
+                    throw new Error('Location not found. Please try another city.');
+                }
+                
+                const weatherData = await weatherResponse.json();
+                
+                // Check if we got valid data
+                if (!weatherData.temperature || weatherData.temperature === "Unknown") {
+                    throw new Error('Weather data not available for this location.');
+                }
+                
+                // Get recipes based on temperature
+                const temp = parseInt(weatherData.temperature.replace(/[^0-9-]/g, ''));
+                const recipes = await getRecipes(temp);
+                
+                // Display results
+                displayResults(location, weatherData, recipes);
+                
+                loadingEl.style.display = 'none';
+                resultsEl.style.display = 'grid';
+            } catch (error) {
+                showError(error.message);
+                console.error('Error:', error);
+            }
+        }
+        
+        async function getWeatherByCoords(lat, lon) {
+            try {
+                // Using free weather API with coordinates
+                const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`;
+                const weatherResponse = await fetch(weatherUrl);
+                
+                if (!weatherResponse.ok) {
+                    throw new Error('Weather service unavailable. Please try again later.');
+                }
+                
+                const weatherData = await weatherResponse.json();
+                
+                // Get location name using reverse geocoding
+                const locationName = await getLocationName(lat, lon);
+                const temp = weatherData.current_weather.temperature;
+                
+                // Get recipes based on temperature
+                const recipes = await getRecipes(temp);
+                
+                // Display results
+                displayResults(locationName, {
+                    temperature: `${temp}°C`,
+                    description: weatherData.current_weather.weathercode_description || "Unknown",
+                    wind: weatherData.current_weather.windspeed,
+                    humidity: "N/A" // This API doesn't provide humidity
+                }, recipes);
+                
+                loadingEl.style.display = 'none';
+                resultsEl.style.display = 'grid';
+            } catch (error) {
+                showError(error.message);
+                console.error('Error:', error);
+            }
+        }
+        
+        async function getLocationName(lat, lon) {
+            try {
+                const response = await fetch(`https://geocode.maps.co/reverse?lat=${lat}&lon=${lon}`);
+                const data = await response.json();
+                return data.address?.city || data.address?.town || data.address?.county || "Your Location";
+            } catch {
+                return "Your Location";
+            }
+        }
+        
+        async function getRecipes(temperature) {
+            // Using a mock recipe API for demonstration
+            // In a real app, you would use Edamam or Spoonacular API
+            
+            let mealType = "balanced";
+            let description = "";
+            
+            if (temperature < 5) {
+                mealType = "soup,stew";
+                description = "It's freezing! Warm up with these hearty dishes.";
+            } else if (temperature < 15) {
+                mealType = "pasta,casserole";
+                description = "Chilly weather calls for comfort food.";
+            } else if (temperature > 25) {
+                mealType = "salad,grilled";
+                description = "Hot weather! Light and fresh meals perfect for this weather.";
+            } else {
+                mealType = "balanced";
+                description = "The weather is pleasant. Enjoy these well-balanced meals.";
+            }
+            
+            // Mock recipe data - in a real app you would fetch from an API
+            const mockRecipes = {
+                "soup,stew": [
+                    {
+                        title: "Hearty Beef Stew",
+                        image: "https://images.unsplash.com/photo-1603105037880-880cd4edfb0d?w=300",
+                        tags: ["Comfort Food", "High-Protein"],
+                        calories: 450,
+                        time: 120,
+                        url: "#"
+                    },
+                    {
+                        title: "Creamy Tomato Soup",
+                        image: "https://images.unsplash.com/photo-1547592166-23ac45744acd?w=300",
+                        tags: ["Vegetarian", "Low-Carb"],
+                        calories: 320,
+                        time: 45,
+                        url: "#"
+                    }
+                ],
+                "pasta,casserole": [
+                    {
+                        title: "Classic Lasagna",
+                        image: "https://images.unsplash.com/photo-1574894709920-11b28e7367e3?w=300",
+                        tags: ["Italian", "High-Protein"],
+                        calories: 550,
+                        time: 90,
+                        url: "#"
+                    },
+                    {
+                        title: "Mac & Cheese",
+                        image: "https://images.unsplash.com/photo-1611270629569-8b357cb88da9?w=300",
+                        tags: ["Comfort Food", "Vegetarian"],
+                        calories: 480,
+                        time: 40,
+                        url: "#"
+                    }
+                ],
+                "salad,grilled": [
+                    {
+                        title: "Greek Salad",
+                        image: "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=300",
+                        tags: ["Mediterranean", "Low-Calorie"],
+                        calories: 280,
+                        time: 15,
+                        url: "#"
+                    },
+                    {
+                        title: "Grilled Chicken Salad",
+                        image: "https://images.unsplash.com/photo-1546069901-6572fc490d6a?w=300",
+                        tags: ["High-Protein", "Low-Carb"],
+                        calories: 350,
+                        time: 25,
+                        url: "#"
+                    }
+                ],
+                "balanced": [
+                    {
+                        title: "Teriyaki Salmon Bowl",
+                        image: "https://images.unsplash.com/photo-1551504734-5ee1c4a1479b?w=300",
+                        tags: ["Asian", "High-Protein"],
+                        calories: 420,
+                        time: 35,
+                        url: "#"
+                    },
+                    {
+                        title: "Vegetable Stir Fry",
+                        image: "https://images.unsplash.com/photo-1626700051175-6818013e1d4f?w=300",
+                        tags: ["Vegetarian", "Quick Meal"],
+                        calories: 380,
+                        time: 20,
+                        url: "#"
+                    }
+                ]
+            };
+            
+            return {
+                description,
+                recipes: mockRecipes[mealType] || mockRecipes["balanced"]
+            };
+        }
+        
+        function displayResults(location, weatherData, recipeData) {
+            // Display weather
+            document.getElementById('weather-location').textContent = `Weather in ${location}`;
+            document.getElementById('temperature').textContent = weatherData.temperature;
+            document.getElementById('weather-description').textContent = weatherData.description;
+            document.getElementById('humidity').textContent = weatherData.humidity || "N/A";
+            document.getElementById('wind').textContent = weatherData.wind;
+            
+            // Set weather icon based on temperature
+            const temp = parseInt(weatherData.temperature.replace(/[^0-9-]/g, ''));
+            const weatherIcon = document.getElementById('weather-icon');
+            
+            if (temp < 5) weatherIcon.textContent = '❄️';
+            else if (temp < 15) weatherIcon.textContent = '🌧️';
+            else if (temp > 25) weatherIcon.textContent = '☀️';
+            else weatherIcon.textContent = '⛅';
+            
+            // Display recipes
+            recipesContainer.innerHTML = '';
+            
+            if (!recipeData.recipes || recipeData.recipes.length === 0) {
+                recipesContainer.innerHTML = '<p>No recipes found for this weather.</p>';
+                return;
+            }
+            
+            recipeData.recipes.forEach(recipe => {
+                const recipeCard = document.createElement('div');
+                recipeCard.className = 'recipe-card';
+                
+                recipeCard.innerHTML = `
+                    <img src="${recipe.image}" alt="${recipe.title}" class="recipe-img">
+                    <div class="recipe-content">
+                        <h3 class="recipe-title">${recipe.title}</h3>
+                        <div class="recipe-health">
+                            ${recipe.tags.map(tag => `<span class="health-label">${tag}</span>`).join('')}
+                        </div>
+                        <p>Calories: ${recipe.calories} kcal</p>
+                        <p>Time: ${recipe.time} mins</p>
+                        <a href="${recipe.url}" target="_blank" rel="noopener noreferrer">View Recipe</a>
+                    </div>
+                `;
+                
+                recipesContainer.appendChild(recipeCard);
+            });
+        }
+        
+        function showError(message) {
+            loadingEl.style.display = 'none';
+            errorEl.textContent = message;
+            errorEl.style.display = 'block';
+        }
+    </script>
+</body>
+</html>
